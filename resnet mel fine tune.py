@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import Counter
 from datetime import datetime
+# how to extract and use composer's fingerprint ? 
+# Kamand
 
 DATA_DIR = '/Users/kamand/preprocessing/midi-features_2_images/mel_spectrograms'
 OUTPUT_DIR = '/Users/kamand/preprocessing'
