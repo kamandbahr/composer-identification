@@ -10,9 +10,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import Counter
 from datetime import datetime
-# لازم است دقت شود که نتیجه نهایی به صورت پای تورچ ذخیره شده است به دلیل حفظ معماری 
-# برای استفاده از این کد یا رابط کاربری ابتدا وزن‌های مدل را با پیش‌پردازش یکی کنید
-# مدل پای تورچ دقیقا با همین معماری ساخته شده و به دلیل حجم بالا در گیتهاب بارگذاری نشده
+
 DATA_DIR = '/Users/kamand/preprocessing/midi-features_2_images/mel_spectrograms'
 OUTPUT_DIR = '/Users/kamand/preprocessing'
 LOGS_DIR = os.path.join(OUTPUT_DIR, 'logs_melspectrogram')
