@@ -228,6 +228,7 @@ def main():
     model, base = build_model(num_classes)
     
     opt = tf.keras.optimizers.legacy.Adam(learning_rate=1e-4)
+    # لازم است در نظر داشته باشیم که تابع ضرر استفاده شده مستقیما نتیجه خود را با لایه سافت مکس مقایسه می‌کند.
     model.compile(optimizer=opt, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
 
     timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
