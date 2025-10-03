@@ -116,21 +116,26 @@ def make_datasets(file_paths, y, batch_size=BATCH_SIZE, validation_split=0.2, te
     paths_train, paths_val, y_train, y_val = train_test_split(paths_tmp, y_tmp, test_size=val_rel, random_state=42, stratify=y_tmp)
 
     print(f"Samples -> train: {len(paths_train)}, val: {len(paths_val)}, test: {len(paths_test)}")
-
+# این دستور برای بهینه‌سازی حافظه است، این دستور می‌تواند به دو روش به بهبود عملکرد بارگذاری دیتا 
+# کمک کند روش اول موازی سازی بارگذاری و روش دوم پری فچ است.
     AUTOTUNE = tf.data.AUTOTUNE
 
     def _load_and_preprocess(file_path, label):
         img = tf.io.read_file(file_path)
+        # داده‌ها RGB
+        # بنابراین داده‌ها سه کاناله ذخیره شده‌اند
         img = tf.io.decode_png(img, channels=3)
         img = tf.cast(img, tf.float32)
 
         img = tf.image.resize(img, IMG_SIZE)
-        
+        # این بخش به صورت اتوماتیک صورت می گیرد اندازه و ابعاد در مراحل قبلی با مقدار مورد نیاز
+        # رزنت یکسان شده‌اند، اما در این مرحله تعداد پیکسل‌های مورد نیاز و استاندارد نرمال‌سازی می‌شوند
         img = resnet50.preprocess_input(img)
         
         return img, label
-
+# مسیرهای داده‌ها را با لیبل آهنگسازان به یک عضو برای یادگیری تبدیل می‌کنیم
     train_ds = tf.data.Dataset.from_tensor_slices((paths_train, y_train))
+    # استفاده بافر سایزی بیش از ۱۰۰۰ باعث درگیری زیاد رم می‌شد و در نهایت برای داده‌های ۱۰۰۰۰ تایی ما کافی بود
     train_ds = train_ds.shuffle(buffer_size=min(len(paths_train), 1000))
     train_ds = train_ds.map(_load_and_preprocess, num_parallel_calls=AUTOTUNE)
     train_ds = train_ds.batch(batch_size).prefetch(AUTOTUNE)
@@ -148,12 +153,18 @@ def make_datasets(file_paths, y, batch_size=BATCH_SIZE, validation_split=0.2, te
 
 
 def build_model(num_classes, dropout_rate=DROPOUT_RATE, l2_reg=L2_REG):
+    # ابتدا مدل بارگذاری می‌شود، که وزن‌های آن همان وزن‌های از پیش ترین شده‌ی ایمیج نت هستند.
+    # نیاز است بخش های مربوط به سایز و کانال مدل بیس تنظیم شود و در نهایت دقت کنید 
+    # تاپ فالس است که به دلیل یکی نبودن کلاس‌های ما و مدل بیس این گونه است
+    # در اصل ما تنها از لایه‌های وزن دار قبل از لایه‌ی آخر استفاده می‌کنیم نه لایه‌ی فولی کانکتد نهایی
     base = ResNet50(weights='imagenet', include_top=False, input_shape=(IMG_SIZE[0], IMG_SIZE[1], 3))
-
+# در فاز اول یادگیری مدل نیاز است تمامی لایه‌های پیشین فریز شوند ( وزن آن‌ها در زمان یادگیری تغییر نکند.)
     for layer in base.layers:
         layer.trainable = False
 
     x = base.output
+    #تبدیل خروجی سه کاناله به یک بردار ویژگی تک بعدی به وسیله اوریج پولینگ 
+    # این بخش هدینگ کلاس بندی مدل فریز شده ماست و تنها بخشیه که توی فاز اول یاد می‌گیره
     x = layers.GlobalAveragePooling2D()(x)
     x = layers.Dropout(dropout_rate)(x)
     x = layers.Dense(512, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(l2_reg))(x)
@@ -165,7 +176,6 @@ def build_model(num_classes, dropout_rate=DROPOUT_RATE, l2_reg=L2_REG):
 
 
 def unfreeze_model(base_model, unfreeze_at=UNFREEZE_AT):
-    """Unfreeze last `-unfreeze_at` layers. If unfreeze_at is None, unfreeze all."""
     if unfreeze_at is None:
         for layer in base_model.layers:
             layer.trainable = True
@@ -190,6 +200,8 @@ def plot_and_save_confusion(y_true, y_pred, labels_map, out_path):
     plt.close()
     print('Saved confusion matrix to', out_path)
 
+# فرمول استفاده شده در این بخش از اینورس فریکوئنسی بوده است
+# وزن هر کلاس = تعداد کل نمونه‌ها تقسیم بر تعداد کلاس‌ها ضرب در تعداد نمونه‌های کلاس مشخص
 def calculate_class_weights(y):
     counts = Counter(y)
     total = len(y)
