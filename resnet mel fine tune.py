@@ -10,7 +10,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import Counter
 from datetime import datetime
-
+# لازم است دقت شود که نتیجه نهایی به صورت پای تورچ ذخیره شده است به دلیل حفظ معماری 
+# برای استفاده از این کد یا رابط کاربری ابتدا وزن‌های مدل را با پیش‌پردازش یکی کنید
+# مدل پای تورچ دقیقا با همین معماری ساخته شده و به دلیل حجم بالا در گیتهاب بارگذاری نشده
 DATA_DIR = '/Users/kamand/preprocessing/midi-features_2_images/mel_spectrograms'
 OUTPUT_DIR = '/Users/kamand/preprocessing'
 LOGS_DIR = os.path.join(OUTPUT_DIR, 'logs_melspectrogram')
@@ -30,6 +32,12 @@ MIXED_PRECISION = True
 os.makedirs(LOGS_DIR, exist_ok=True)
 os.makedirs(BEST_MODEL_DIR, exist_ok=True)
 os.makedirs(LAST_MODEL_DIR, exist_ok=True)
+# آیا جی‌پی‌یو فعال است؟ برای بخش apple silicon این بخش اساسی است.
+# اگر کد را روی مک ران نمی‌کنید این بخش را اسکیپ کنید،در غیر اینصورت لازم است برروی اینترپریتر خود
+# تنسور متال را نصب کنید که در ادامه کد آن را کامنت می‌کنم.
+# conda deactive
+# conda activate tf-new-final ---> my environment
+# pip install tensorflow-metal
 
 gpus = tf.config.list_physical_devices('GPU')
 if gpus:
@@ -41,7 +49,9 @@ if gpus:
         print("Could not set memory growth:", e)
 else:
     print("No GPUs found or visible to TensorFlow.")
-
+#  بسته به رم خود و سرعت اجرا این بخش را فعال و یا غیر فعال کنید
+# میکسد پرسیژن اعداد را به جای ۳۲ بیت به ۱۶ بیت که تعداد گنجایش فلات در سخت افزار است تبدیل می‌کند
+# این روش می‌تواند سرعت پردازش را بالا ببرد
 if MIXED_PRECISION:
     try:
         mixed_precision.set_global_policy('mixed_float16')
@@ -59,17 +69,24 @@ def load_image_paths(data_path):
     all_labels = []
 
     # Get a list of all composer directories
+    # دقت کنید در بخش لود کردن آهنگسازان پس از اینکه مسیری که برای دیتا‌ها به صورت کانستنت مشخص کردیم
+    # شروع به چک کردن فایل‌ها می‌کنیم، نکته قابل توجه در چک کردن مسیری هست که خودمان ایجاد می‌کنیم، یعنی:
+    # ابتدا نام فایل‌های داخل مسیر اصلی را اکسترکت کرده، سپس آن را به مسیر اصلی اضافه می‌کنیم و می‌بینیم
+    # که آیا یک فولدر و یا یک فایل مجزا است، در صورت فایل مجزا بودن آن را داخل لیست ذخیره نمی‌کنیم
     composer_dirs = sorted([d for d in os.listdir(data_path) if os.path.isdir(os.path.join(data_path, d))])
     if not composer_dirs:
         print("No composer directories found. Please check the data path.")
         return None, None, None
-
+# سیو مسیر آهنگسازان برای بدست آوردن تصاویر داخل فولدرها
     for composer in composer_dirs:
         composer_dir = os.path.join(data_path, composer)
+        # چک برای وجود فایل با انتهای .png
         image_files = [f for f in os.listdir(composer_dir) if f.endswith('.png')]
-        
+
+        # مهم است که تمامی مسیرها برای تصاویر سیو شوند، مسیر تصویرها : مسیر آهنگساز +‌اسم تصویر
         for image_file in image_files:
             all_image_paths.append(os.path.join(composer_dir, image_file))
+            # لیبل‌ها با استفاده از ایندکس فور ابتدایی ذخیره می‌شوند، این ایندکس همان نام آهنگسازان است
             all_labels.append(composer)
 
     if not all_image_paths:
@@ -90,6 +107,10 @@ def make_datasets(file_paths, y, batch_size=BATCH_SIZE, validation_split=0.2, te
     """
     Creates TensorFlow datasets from image file paths to load data on-the-fly.
     """
+
+    # تقسیم دیتاست داخل خود کد
+    #نیاز است بدانیم که در اولیوایشن نهایی دیتاست در داخل دیسک تقسیم شده است و نه در کد برای جلوگیری از لیکیج نهایی 
+    # روش استفاده شده در این کد نیز دارای لیکیج نیست زیرا در ابتدا داده‌های تست از مجموعه داده‌های اصلی جدا شده‌اند.
     paths_tmp, paths_test, y_tmp, y_test = train_test_split(file_paths, y, test_size=test_split, random_state=42, stratify=y)
     val_rel = validation_split / (1.0 - test_split)
     paths_train, paths_val, y_train, y_val = train_test_split(paths_tmp, y_tmp, test_size=val_rel, random_state=42, stratify=y_tmp)
